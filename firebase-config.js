@@ -18,7 +18,7 @@ const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 const appId = "test1";
 
-// 전역 변수로 설정하여 script.js에서 접근 가능하게 함
+// 전역 변수 설정
 window.db = db;
 window.auth = auth;
 window.appId = appId;
@@ -35,29 +35,30 @@ window.login = async () => {
 };
 window.logout = () => signOut(auth);
 
-// 인증 상태 감시
+// 인증 상태 감시 및 UI 동기화
 onAuthStateChanged(auth, (user) => {
-    const light = document.getElementById('status-light');
-    const authBtn = document.getElementById('auth-btn');
-    const pNameInput = document.getElementById('p-name');
-    const pMsgInput = document.getElementById('p-msg');
+    // 전역 auth 객체 업데이트
+    window.auth.currentUser = user;
 
-    if (user) {
-        if(light) light.classList.replace('bg-gray-500', 'bg-green-500');
-        if(authBtn) authBtn.innerText = "LOGOUT";
-        if(pNameInput) {
-            pNameInput.value = user.displayName;
-            pNameInput.readOnly = true;
+    // 상단 상태 라이트 제어
+    const light = document.getElementById('status-light');
+    if (light) {
+        if (user) {
+            light.classList.remove('bg-gray-500');
+            light.classList.add('bg-green-500');
+        } else {
+            light.classList.remove('bg-green-500');
+            light.classList.add('bg-gray-500');
         }
-        if(pMsgInput) pMsgInput.placeholder = "공유할 전술을 입력하세요...";
-        if (typeof window.loadPosts === "function") window.loadPosts();
-    } else {
-        if(light) light.classList.replace('bg-green-500', 'bg-gray-500');
-        if(authBtn) authBtn.innerText = "LOGIN WITH GOOGLE";
-        if(pNameInput) {
-            pNameInput.value = "";
-            pNameInput.placeholder = "LOGIN REQUIRED";
-        }
-        if(pMsgInput) pMsgInput.placeholder = "먼저 로그인을 해주세요.";
+    }
+
+    // [중요] community.js에 있는 UI 업데이트 함수 호출
+    if (typeof window.updateAuthUI === "function") {
+        window.updateAuthUI(user);
+    }
+
+    // 게시글 로드 시작
+    if (typeof window.loadPosts === "function") {
+        window.loadPosts();
     }
 });

@@ -70,14 +70,24 @@
                 </div>
             </div>
 
-            <div class="grid md:grid-cols-2 gap-8 mb-16">
-                <div class="data-card border-l-4 border-l-green-500">
-                    <h3 class="font-black text-xs mb-2 uppercase text-green-600">제조소 및 헬름 유지</h3>
-                    <p class="text-[11px] text-gray-500 leading-relaxed font-bold">확보한 제조소 소유권과 헬름 업그레이드는 시즌 종료 후에도 유지됩니다.</p>
+            <div class="grid md:grid-cols-3 gap-6 mb-16">
+                <div class="patch-card">
+                    <h4 class="font-black text-[10px] text-blue-600 mb-3 uppercase tracking-widest text-research-highlight">Y2S4: Corvette & Rank 17</h4>
+                    <p class="text-[11px] text-gray-600 leading-relaxed">
+                        함선 랭크가 17로 확장되었습니다. 신규 대형함 **코르벳**은 '표준 기수' 특성으로 아군 수리 효율을 최대 50%까지 증폭시킵니다.
+                    </p>
                 </div>
-                <div class="data-card border-l-4 border-l-orange-500">
-                    <h3 class="font-black text-xs mb-2 uppercase text-orange-600">Po8 소프트 리셋</h3>
-                    <p class="text-[11px] text-gray-500 leading-relaxed font-bold">보유 중인 에이트의 조각은 300,000개를 기준으로 리셋됩니다. 초과분은 미리 소비하십시오.</p>
+                <div class="patch-card">
+                    <h4 class="font-black text-[10px] text-red-600 mb-3 uppercase tracking-widest text-research-highlight">Weapon System Overhaul</h4>
+                    <p class="text-[11px] text-gray-600 leading-relaxed">
+                        장거리포의 **거리 감쇄가 완전히 제거**되었습니다. 이제 1000m 이상에서도 100% 데미지를 입히며 모듈 파괴 확률이 비약적으로 상승했습니다.
+                    </p>
+                </div>
+                <div class="patch-card">
+                    <h4 class="font-black text-[10px] text-purple-600 mb-3 uppercase tracking-widest text-research-highlight">Sea Fire Toggle</h4>
+                    <p class="text-[11px] text-gray-600 leading-relaxed">
+                        해불(Sea Fire) 무기가 **상시 가동(Toggle)** 방식으로 변경되었습니다. 탄약 용량이 상향되어 근접전에서의 지속 화력이 대폭 강화되었습니다.
+                    </p>
                 </div>
             </div>
 
@@ -212,17 +222,31 @@
                 </div>
             </div>
         </div>
-    </main>
 
-    <footer class="mt-20 py-12 px-6 border-t border-gray-100 flex justify-between items-center text-[9px] text-gray-300 font-bold uppercase tracking-[0.3em]">
+        <div id="comm" class="content-section">
+            <div class="flex justify-between items-end mb-8 border-b-2 border-black pb-2">
+                <h2 class="text-xl font-black uppercase tracking-tighter">Community Archive</h2>
+                <div class="flex gap-4 items-center">
+                    <input type="text" id="search-input" oninput="filterPosts()" placeholder="SEARCH..." class="text-[10px] font-black border-b border-gray-300 outline-none px-2 py-1 focus:border-black transition uppercase w-32">
+                    <button id="auth-btn" onclick="handleAuth()" class="text-[10px] font-black border border-black px-4 py-1 hover:bg-black hover:text-white transition uppercase">Login</button>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 p-6 mb-10 border border-black">
+                <div class="flex flex-col md:flex-row gap-2 mb-2">
+                    <input type="text" id="p-name" placeholder="LOGIN REQUIRED" readonly class="p-3 text-xs font-black border border-gray-200 outline-none bg-gray-100 w-full md:w-1/4 uppercase">
+                    <input type="text" id="p-msg" placeholder="먼저 로그인을 해주세요." readonly class="p-3 text-xs font-black border border-gray-200 focus:border-black outline-none bg-white w-full md:w-3/4">
+                </div>
+                <button onclick="sendMsg()" class="w-full bg-black text-white py-4 text-[10px] font-black tracking-[0.3em] hover:bg-gray-800 transition">PUBLISH TO ARCHIVE</button>
+            </div>
+
+            <div id="post-list" class="space-y-3"></div>
+        </div>
+    </main> <footer class="mt-20 py-12 px-6 border-t border-gray-100 flex justify-between items-center text-[9px] text-gray-300 font-bold uppercase tracking-[0.3em]">
         <div>Archive ID: TEST-2026</div>
         <div>Verified Connection: Secure</div>
     </footer>
 
-    <script src="js/archive.js"></script>
-    <script src="js/ships.js"></script>
-    <script src="js/map.js"></script>
-    <script src="js/community.js"></script>
-    <script src="js/main.js"></script>
+    <script src="script.js" defer></script>
 </body>
 </html>

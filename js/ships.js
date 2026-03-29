@@ -1,12 +1,12 @@
 /**
- * js/ships.js
+ * js/ships.js (통합 script.js용 함선 로직)
  * 모든 함선 데이터 및 상세 가이드 (2026 분석 보고서 기반)
  */
 
 const shipData = {
     'barque': {
         name: "Barque (바크)",
-        stats: [65, 90, 75, 100, 85], 
+        stats: [65, 90, 75, 100, 85], // 화력, 생존, 속도, 복구, 적재
         description: "패시브 'Rejuvenate'를 통한 자가 수리 특화. 솔로 파밍 및 지속 교전의 지배자입니다.",
         guide: [
             { title: "SUSTAINABILITY", content: "별도 가구 없이도 심각한 피해(Severe Damage) 복구가 가능합니다. 수리 키트 절약에 최적화되어 있습니다." },
@@ -29,7 +29,7 @@ const shipData = {
         guide: [
             { title: "SCORCHED EARTH", content: "불타는 적에게 피해 30% 증가. 150m 반경 상태 이상 전이를 활용해 다수의 적을 섬멸하십시오." }
         ]
-    }, // <-- 이 쉼표가 중요합니다!
+    },
     'brigantine': {
         name: "Brigantine (브리건틴)",
         stats: [75, 65, 100, 40, 70],
@@ -50,6 +50,9 @@ const shipData = {
     }
 };
 
+/**
+ * 함선 선택 및 UI 업데이트 함수
+ */
 function selectShip(key) {
     const ship = shipData[key];
     if(!ship) return;
@@ -62,12 +65,12 @@ function selectShip(key) {
     if(statusCard) {
         statusCard.innerHTML = `
             <h3 class="text-[10px] font-black tracking-widest uppercase mb-4 text-blue-400">${ship.name}</h3>
-            <p class="text-[11px] leading-relaxed opacity-70 mb-4">${ship.description}</p>
+            <p class="text-[11px] leading-relaxed opacity-70 mb-4 font-bold">${ship.description}</p>
             <div class="text-[9px] font-bold border-t border-white/10 pt-4 opacity-50 uppercase tracking-widest italic">Data Source: S&B Official Analysis</div>
         `;
     }
 
-    // 3. 가이드 영역 업데이트 (함선별로 다른 글이 뜹니다)
+    // 3. 가이드 영역 업데이트
     const guideArea = document.getElementById('ship-guide');
     if(guideArea) {
         guideArea.innerHTML = ship.guide.map(item => `
@@ -79,11 +82,17 @@ function selectShip(key) {
     }
 }
 
+/**
+ * 레이더 차트 렌더링 함수
+ */
 function updateRadarChart(data) {
     const canvas = document.getElementById('radarChart');
     if(!canvas) return;
     const ctx = canvas.getContext('2d');
+    
+    // 기존 차트가 있으면 파괴 후 재생성 (Chart.js 필수 절차)
     if(window.rChart) window.rChart.destroy();
+    
     window.rChart = new Chart(ctx, {
         type: 'radar',
         data: {
@@ -98,12 +107,23 @@ function updateRadarChart(data) {
         },
         options: { 
             maintainAspectRatio: false, 
-            scales: { r: { ticks: { display: false }, grid: { color: '#f5f5f5' }, pointLabels: { font: { weight: '800', size: 10 } } } }, 
+            scales: { 
+                r: { 
+                    min: 0,
+                    max: 100,
+                    ticks: { display: false, stepSize: 20 }, 
+                    grid: { color: '#f5f5f5' }, 
+                    pointLabels: { font: { weight: '800', size: 10 } } 
+                } 
+            }, 
             plugins: { legend: { display: false } } 
         }
     });
 }
 
+/**
+ * 초기화 함수
+ */
 function initRadar() {
     selectShip('barque');
 }
