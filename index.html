@@ -3,399 +3,262 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Skull and Bones: 마스터 캡틴 가이드</title>
+    <title>S&B Master Archive</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'sb-master-archive';
+
+        window.db = db;
+        window.auth = auth;
+        window.appId = appId;
+        window.firebaseUtils = { collection, addDoc, onSnapshot, query, serverTimestamp, doc, updateDoc, deleteDoc };
+
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (e) { console.error(e); }
+        };
+        initAuth();
+
+        onAuthStateChanged(auth, (user) => { if (user) loadPosts(); });
+    </script>
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-        body { font-family: 'Pretendard', sans-serif; background-color: #faf8f5; color: #2d241e; }
-        
-        .chart-container {
-            position: relative;
-            width: 100%;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-            height: 300px;
-            max-height: 400px;
-        }
-        @media (min-width: 768px) {
-            .chart-container { height: 350px; }
-        }
-        
-        .nav-btn.active {
-            background-color: #8c6b4a;
-            color: #ffffff;
-            border-color: #8c6b4a;
-        }
+        body { font-family: 'Pretendard', sans-serif; background-color: #ffffff; color: #000000; }
+        .nav-link { position: relative; transition: all 0.3s; }
+        .nav-link.active::after { content: ''; position: absolute; bottom: -2px; left: 0; width: 100%; height: 2px; background: #000; }
         .content-section { display: none; }
-        .content-section.active { display: block; animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        
-        .accent-border { border-left: 4px solid #d4a373; }
+        .content-section.active { display: block; animation: slideUp 0.4s ease-out; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .chart-container { position: relative; width: 100%; height: 300px; max-width: 500px; margin: auto; }
+        .glass-card { border: 1px solid #e5e7eb; transition: transform 0.2s; }
+        .glass-card:hover { transform: translateY(-2px); border-color: #000; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="selection:bg-black selection:text-white">
 
-    <!-- Chosen Palette: Warm Maritime Neutrals (#faf8f5 background, #2d241e text, #8c6b4a & #d4a373 accents) -->
-    <!-- Application Structure Plan: A tabbed dashboard layout was chosen to logically separate the diverse questions asked (Season resets, Ship meta, Resource farming, General tips). This prevents information overload and allows the user to navigate directly to their immediate area of interest (e.g., checking Corvette materials vs understanding Pieces of Eight strategy). -->
-    <!-- Visualization & Content Choices: 
-         1. Radar Chart (Ship Meta): Goal - Compare ship stats visually. Method - Chart.js Radar. Justification - Best way to show trade-offs between speed, hull, firepower, and utility. 
-         2. Bar Chart (Po8 Growth): Goal - Explain investment vs hoarding. Method - Chart.js Bar. Justification - Clearly illustrates the exponential return of investing in manufactories over time. 
-         3. Text/Grid Cards: Goal - Detail specific material lists and farming locations. Method - Tailwind Grids. Justification - Easy scanning for specific items like '심철' and Corvette materials. 
-    -->
+    <!-- Chosen Palette: Black & White Minimalist -->
+    <!-- Application Structure Plan: Tabbed interface for deep-dive information. Clean grid-based layout for materials and farming tips. Integrated Firestore-backed board. -->
+    <!-- Visualization & Content Choices: Radar chart for ship comparison, line chart for Po8 meta. Plain text lists for high readability. No SVG/Mermaid. -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
 
-    <header class="bg-[#2d241e] text-[#faf8f5] py-8 px-4 shadow-md">
-        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center">
+    <header class="border-b border-black py-10 px-6">
+        <div class="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-end">
             <div>
-                <h1 class="text-3xl font-bold mb-2">⚓ 스컬 앤 본즈 마스터 가이드</h1>
-                <p class="text-[#d4a373]">시즌 초기화, 함선 세팅, 자원 수급 및 에이트의 조각 완벽 분석</p>
+                <h1 class="text-4xl font-black tracking-tighter mb-2">SKULL AND BONES<br>MASTER ARCHIVE</h1>
+                <p class="text-gray-500 uppercase tracking-widest text-xs font-bold">Season 03 / World Tier 02 Updated</p>
             </div>
-            <div class="mt-4 md:mt-0 text-sm bg-[#4a3b32] px-4 py-2 rounded text-center">
-                최신 시즌 및 월드 티어 2 기준 <br>데이터 패치 반영
-            </div>
+            <div id="auth-tag" class="text-[10px] border border-black px-2 py-1 mt-4 md:mt-0 opacity-50">STATION: CONNECTED</div>
         </div>
     </header>
 
-    <nav class="bg-[#ebdccb] sticky top-0 z-10 shadow-sm border-b border-[#d4a373]">
-        <div class="max-w-6xl mx-auto flex overflow-x-auto p-2 gap-2" id="nav-container">
-            <button onclick="switchTab('season')" class="nav-btn active px-6 py-2 rounded border border-[#8c6b4a] text-[#4a3b32] hover:bg-[#8c6b4a] hover:text-white transition whitespace-nowrap font-medium">📜 시즌 & 초기화</button>
-            <button onclick="switchTab('ships')" class="nav-btn px-6 py-2 rounded border border-[#8c6b4a] text-[#4a3b32] hover:bg-[#8c6b4a] hover:text-white transition whitespace-nowrap font-medium">🚢 함선 메타 & 코르벳</button>
-            <button onclick="switchTab('resources')" class="nav-btn px-6 py-2 rounded border border-[#8c6b4a] text-[#4a3b32] hover:bg-[#8c6b4a] hover:text-white transition whitespace-nowrap font-medium">💎 자원 & 심철 파밍</button>
-            <button onclick="switchTab('strategy')" class="nav-btn px-6 py-2 rounded border border-[#8c6b4a] text-[#4a3b32] hover:bg-[#8c6b4a] hover:text-white transition whitespace-nowrap font-medium">💰 에이트 & 투자 꿀팁</button>
+    <nav class="sticky top-0 bg-white z-50 border-b border-gray-200">
+        <div class="max-w-5xl mx-auto flex gap-8 px-6 py-4 overflow-x-auto">
+            <button onclick="switchTab('home')" class="nav-link active font-bold text-sm uppercase">Archive</button>
+            <button onclick="switchTab('fleet')" class="nav-link font-bold text-sm uppercase">Fleet & Meta</button>
+            <button onclick="switchTab('economy')" class="nav-link font-bold text-sm uppercase">Economy</button>
+            <button onclick="switchTab('board')" class="nav-link font-bold text-sm uppercase">Community</button>
         </div>
     </nav>
 
-    <main class="flex-grow p-4 md:p-8 max-w-6xl mx-auto w-full">
+    <main class="max-w-5xl mx-auto p-6 min-h-[60vh]">
 
-        <div id="season" class="content-section active">
-            <h2 class="text-2xl font-bold mb-4 text-[#4a3b32]">📜 시즌 진행 및 초기화 메커니즘</h2>
-            <p class="mb-6 text-lg">새로운 시즌이 시작될 때 게임 내에서 유지되는 것과 초기화되는 것을 정확히 아는 것이 장기적인 성장의 핵심입니다. 특히 헬름 제국(제조소)의 관리가 중요합니다.</p>
-            
-            <div class="grid md:grid-cols-2 gap-6">
-                <div class="bg-white p-6 rounded-lg shadow-sm border-t-4 border-red-500">
-                    <h3 class="text-xl font-bold mb-4 flex items-center">🔄 시즌별 초기화 항목 (Reset)</h3>
-                    <ul class="space-y-3">
-                        <li class="flex items-start"><span class="mr-2">▪️</span> <div><strong>제조소(공장) 지배권:</strong> 점령했던 모든 제조소가 초기화됩니다. 새 시즌에 다시 점령해야 합니다.</div></li>
-                        <li class="flex items-start"><span class="mr-2">▪️</span> <div><strong>제조소 레벨:</strong> 투자했던 제조소의 레벨이 모두 1로 돌아갑니다.</div></li>
-                        <li class="flex items-start"><span class="mr-2">▪️</span> <div><strong>헬름 제국 업그레이드:</strong> 밀수업자 은신처 책상에서 진행한 지역 버프 및 효율 업그레이드가 초기화됩니다.</div></li>
-                        <li class="flex items-start"><span class="mr-2">▪️</span> <div><strong>리더보드 점수:</strong> 주간/시즌 순위가 초기화됩니다.</div></li>
-                        <li class="flex items-start text-red-600 font-semibold"><span class="mr-2">❗</span> <div><strong>에이트의 조각 (소프트 리셋):</strong> 보통 시즌 전환 시 30만 개 이상 보유한 에이트의 조각은 상한선(예: 30만)에 맞춰 삭감됩니다.</div></li>
-                    </ul>
+        <!-- HOME: Archive Overview -->
+        <div id="home" class="content-section active">
+            <section class="grid md:grid-cols-2 gap-12 mb-16">
+                <div>
+                    <h2 class="text-2xl font-bold mb-6 border-l-4 border-black pl-4">시즌 초기화 가이드</h2>
+                    <div class="space-y-6 text-sm leading-relaxed">
+                        <div>
+                            <h3 class="font-bold underline mb-2">무엇이 사라지는가? (Reset)</h3>
+                            <p class="text-gray-600">제조소 지배권, 제조소 레벨, 헬름 제국 업그레이드 수치가 초기화됩니다. 에이트의 조각(Po8)은 30만 개를 초과하는 분량은 삭제됩니다.</p>
+                        </div>
+                        <div>
+                            <h3 class="font-bold underline mb-2">무엇이 남는가? (Kept)</h3>
+                            <p class="text-gray-600">함선, 장비, 가구, 은화, 창고 자원, 모든 해금된 청사진은 그대로 유지됩니다. 함선의 강화 단계도 유지됩니다.</p>
+                        </div>
+                    </div>
                 </div>
-
-                <div class="bg-white p-6 rounded-lg shadow-sm border-t-4 border-green-500">
-                    <h3 class="text-xl font-bold mb-4 flex items-center">💾 영구 유지 항목 (Kept)</h3>
-                    <ul class="space-y-3">
-                        <li class="flex items-start"><span class="mr-2">▪️</span> <div><strong>선대 및 장비:</strong> 획득한 선박, 무기, 장갑, 가구 등 모든 아이템은 유지됩니다.</div></li>
-                        <li class="flex items-start"><span class="mr-2">▪️</span> <div><strong>함선 업그레이드 수치:</strong> 각 선박별로 투자한 강화 레벨(티어)은 그대로 유지됩니다.</div></li>
-                        <li class="flex items-start"><span class="mr-2">▪️</span> <div><strong>일반 자원 및 은화:</strong> 창고에 있는 은화, 목재, 금속, 희귀 재료 등은 모두 유지됩니다.</div></li>
-                        <li class="flex items-start"><span class="mr-2">▪️</span> <div><strong>청사진:</strong> 해금한 모든 설계도(청사진)는 영구적으로 남습니다.</div></li>
-                        <li class="flex items-start text-green-600 font-semibold"><span class="mr-2">💡</span> <div>시즌 말기에는 에이트의 조각을 아끼기보다 다음 시즌에 쓸 '은화 상자'나 '고급 재료'로 미리 변환해두는 것이 좋습니다.</div></li>
-                    </ul>
+                <div class="bg-gray-50 p-8 border border-gray-200">
+                    <h3 class="font-bold mb-4 uppercase text-xs tracking-widest">Season Tip</h3>
+                    <p class="text-sm">시즌 종료 직전에는 에이트의 조각을 아끼지 말고 **'은화 상자'**나 **'고급 강화 재료'**로 모두 변환하여 다음 시즌을 준비하는 것이 최선입니다.</p>
                 </div>
-            </div>
+            </section>
         </div>
 
-        <div id="ships" class="content-section">
-            <h2 class="text-2xl font-bold mb-4 text-[#4a3b32]">🚢 현재 함선 메타 및 강화 정보</h2>
-            <p class="mb-6 text-lg">최근 패치와 월드 티어 확장에 따라 배의 역할군이 더욱 중요해졌습니다. 현재 질문하신 <strong>13티어 바크(Barque)의 성능</strong>과 <strong>코르벳 건조 정보</strong>를 중심으로 분석합니다.</p>
-
-            <div class="grid md:grid-cols-2 gap-8 mb-8">
-                <div class="bg-white p-6 rounded-lg shadow-sm">
-                    <h3 class="text-xl font-bold mb-2">13티어 바크 (Barque) 파밍 성능 평가</h3>
-                    <div class="accent-border pl-4 mb-4 text-gray-700">
-                        "13티어 바크로 월드 티어 2에서 파밍이 가능한가요?"
+        <!-- FLEET: Ships & Materials -->
+        <div id="fleet" class="content-section">
+            <div class="grid md:grid-cols-2 gap-12 mb-12">
+                <div>
+                    <h2 class="text-2xl font-bold mb-6 border-l-4 border-black pl-4">13티어 바크(Barque) 분석</h2>
+                    <p class="text-sm mb-4">"13티어 바크로 월드 티어 2 파밍이 가능한가요?"</p>
+                    <div class="p-4 bg-black text-white text-sm mb-6">
+                        <strong>YES.</strong> 현재 바크는 솔로 파밍에서 대체 불가능한 1티어입니다. 패시브 힐 덕분에 소모품 없이 무한 파밍이 가능합니다.
                     </div>
-                    <p class="mb-4"><strong>결론: 매우 가능하며, 1티어 솔로 파밍 선박입니다.</strong></p>
-                    <ul class="space-y-2 mb-4">
-                        <li>✔️ <strong>강력한 패시브 힐:</strong> 지속적인 선체 복원력 덕분에 월드 티어 2의 강력한 적들을 상대로도 장기전 생존력이 압도적입니다.</li>
-                        <li>✔️ <strong>유지력:</strong> 수리 도구 소모를 극단적으로 줄여주어 맵을 넓게 도는 에이트 수금 및 연속 전투에 최적화되어 있습니다.</li>
-                        <li>✔️ <strong>권장 무장:</strong> 자마자마(Zamazama) 다중포 또는 다르다넬스 건을 장착하여 근/중거리 화력을 보완하면 파밍 속도도 훌륭합니다.</li>
-                    </ul>
-                    <div class="bg-yellow-50 p-3 rounded text-sm text-yellow-800">
-                        * 주의: 폭딜이 필요한 보스전(예: 라 페스트 고레벨)에서는 딜 타임이 길어질 수 있으므로, 보스전 한정으로는 코르벳이나 삼부크(Sambuk) 스위칭을 고려하세요.
-                    </div>
-                </div>
-
-                <div class="bg-white p-6 rounded-lg shadow-sm flex flex-col justify-center">
-                    <h3 class="text-xl font-bold mb-4 text-center">주요 함선 역할군 비교</h3>
                     <div class="chart-container">
-                        <canvas id="shipRadarChart"></canvas>
+                        <canvas id="shipChart"></canvas>
                     </div>
-                    <p class="text-xs text-center text-gray-500 mt-2">위 차트는 각 함선의 최종 티어 풀강화 기준 상대적 강점입니다.</p>
                 </div>
-            </div>
-
-            <div class="bg-white p-6 rounded-lg shadow-sm">
-                <h3 class="text-xl font-bold mb-4">⚓ 코르벳 (Corvette) 건조 및 강화 자원</h3>
-                <p class="mb-4">코르벳은 빠른 속도와 치명적인 측면 화력을 자랑하는 최상위 공격형 함선입니다. 건조 및 상위 티어 강화 시 대량의 고급 자원이 필요합니다.</p>
-                
-                <div class="grid md:grid-cols-3 gap-4">
-                    <div class="bg-[#faf8f5] p-4 rounded border border-[#ebdccb]">
-                        <h4 class="font-bold mb-2 text-blue-800">기초 건조 재료 (예시)</h4>
-                        <ul class="text-sm space-y-1">
-                            <li>- 로즈우드 널빤지 15개</li>
-                            <li>- 순철 주괴 (Pure Iron) 15개</li>
-                            <li>- 정밀 톱니바퀴 10개</li>
-                            <li>- 은화 약 15,000</li>
-                        </ul>
-                    </div>
-                    <div class="bg-[#faf8f5] p-4 rounded border border-[#ebdccb]">
-                        <h4 class="font-bold mb-2 text-purple-800">초기 강화 재료 (1~3티어)</h4>
-                        <ul class="text-sm space-y-1">
-                            <li>- 쉘락, 타르 등 가공재료</li>
-                            <li>- 나선형 스프링 (Torsion Spring)</li>
-                            <li>- 유리기판 (Sheet Glass)</li>
-                            <li>- 에이트의 조각</li>
-                        </ul>
-                    </div>
-                    <div class="bg-[#faf8f5] p-4 rounded border border-[#ebdccb]">
-                        <h4 class="font-bold mb-2 text-orange-800">후반 강화 재료 (4~6티어)</h4>
-                        <ul class="text-sm space-y-1">
-                            <li>- 정밀 시추 날 (Precision Drilling Bit)</li>
-                            <li>- 범고래의 장치 (Orca's Mechanism)</li>
-                            <li>- 심연의 정수/심철 등 보스 희귀드랍물</li>
-                            <li>- 막대한 량의 에이트의 조각 & 은화</li>
-                        </ul>
+                <div>
+                    <h2 class="text-2xl font-bold mb-6 border-l-4 border-black pl-4">코르벳 건조 & 심철 파밍</h2>
+                    <div class="space-y-4 text-sm">
+                        <div class="glass-card p-4">
+                            <h4 class="font-bold mb-2">코르벳 필요 재료</h4>
+                            <ul class="text-gray-600 list-disc list-inside">
+                                <li>정밀 시추 날 (Precision Drilling Bit)</li>
+                                <li>범고래의 장치 (Orca's Mechanism)</li>
+                                <li>심철 (Heart of Ice) - 보스 드롭</li>
+                                <li>로즈우드 & 순철 주괴</li>
+                            </ul>
+                        </div>
+                        <div class="glass-card p-4">
+                            <h4 class="font-bold mb-2">심철(희귀재료) 수급 팁</h4>
+                            <p class="text-gray-600">주간 상점만 기다리지 마세요. **'엘리트 호위대(Convoy)'** 습격과 **'고레벨 전초기지 약탈'**이 훨씬 빠릅니다. 망원경으로 화물을 미리 스캔해 심철이 있는지 확인하고 공격하세요.</p>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div id="resources" class="content-section">
-            <h2 class="text-2xl font-bold mb-4 text-[#4a3b32]">💎 재료 수급 팁 & 심철(희귀 자원) 파밍</h2>
-            <p class="mb-6 text-lg">함선 강화를 위해서는 특수 희귀 자원 수급이 필수적입니다. 주간 상점 대기 시간을 극복하는 방법을 알려드립니다.</p>
-
-            <div class="bg-white p-6 rounded-lg shadow-sm mb-6">
-                <h3 class="text-xl font-bold mb-2 text-red-700">Q. "심철(희귀 재료) 같은 건 주간 상점만을 기다려야 하나요?"</h3>
-                <p class="mb-4"><strong>A. 아닙니다! 주간 상점(암시장)은 가장 '확실한' 방법일 뿐, 필드 파밍을 통해 수급 속도를 크게 올릴 수 있습니다.</strong> 함선 강화에 들어가는 재료(정밀 시추 날, 유리기판, 오르카의 장치, 각종 특수 철 등)는 다음 세 가지 루트로 파밍해야 합니다.</p>
-
-                <div class="space-y-4">
-                    <div class="flex flex-col md:flex-row gap-4">
-                        <div class="md:w-1/3 bg-[#ebdccb] p-4 rounded font-bold flex items-center justify-center text-center">
-                            1. 적대 세력 정예 전함 사냥
-                        </div>
-                        <div class="md:w-2/3 flex items-center">
-                            프랑스 회사, 네덜란드 상인 연합 등 각 팩션의 <strong>현상금 표적 (Bounty)</strong>이나 지도에 표시되는 <strong>엘리트 호위대(Convoy)</strong>를 파괴하면 유리기판, 나선형 스프링, 정밀 시추 날 등을 확률적으로 드롭합니다. 망원경으로 적의 화물창을 먼저 스캔하세요.
-                        </div>
-                    </div>
-                    <div class="flex flex-col md:flex-row gap-4">
-                        <div class="md:w-1/3 bg-[#ebdccb] p-4 rounded font-bold flex items-center justify-center text-center">
-                            2. 맹수 및 바다 괴물 사냥
-                        </div>
-                        <div class="md:w-2/3 flex items-center">
-                            힘줄(Sinew)이나 뼈 같은 생물형 특수 재료는 자마켈의 괴물, 쿠하루 같은 <strong>바다 괴물 현상금 퀘스트</strong>를 반복 클리어하여 획득할 수 있습니다. 몬스터 퀘스트는 매일 초기화됩니다.
-                        </div>
-                    </div>
-                    <div class="flex flex-col md:flex-row gap-4">
-                        <div class="md:w-1/3 bg-[#ebdccb] p-4 rounded font-bold flex items-center justify-center text-center">
-                            3. 전초기지 약탈 (Plunder)
-                        </div>
-                        <div class="md:w-2/3 flex items-center">
-                            고레벨(10~15레벨) 전초기지를 끝까지 약탈(보스 웨이브까지 클리어)하면 최종 보상으로 대량의 가공 재료와 희귀 금속류를 얻을 수 있습니다. 13티어 바크라면 솔로 약탈도 무난합니다.
-                        </div>
-                    </div>
+        <!-- ECONOMY: Po8 & Strategy -->
+        <div id="economy" class="content-section">
+            <h2 class="text-2xl font-bold mb-8 border-l-4 border-black pl-4">에이트의 조각 수급 전략</h2>
+            <div class="grid md:grid-cols-3 gap-6 mb-12">
+                <div class="border p-6">
+                    <span class="text-4xl font-black">01</span>
+                    <h3 class="font-bold mt-2">헬름 책상 우선</h3>
+                    <p class="text-xs text-gray-500 mt-2">무기보다 '제국 관리' 업그레이드가 먼저입니다. 생산 효율이 수십 배 차이납니다.</p>
+                </div>
+                <div class="border p-6 bg-black text-white">
+                    <span class="text-4xl font-black">02</span>
+                    <h3 class="font-bold mt-2">7레벨 제조소</h3>
+                    <p class="text-xs text-gray-300 mt-2">붉은 섬의 주요 거점을 7레벨까지 찍으세요. 수금 주기가 길어져 게임이 편해집니다.</p>
+                </div>
+                <div class="border p-6">
+                    <span class="text-4xl font-black">03</span>
+                    <h3 class="font-bold mt-2">은화 복사</h3>
+                    <p class="text-xs text-gray-500 mt-2">골드 럼주/아편을 만들어 스컬록/라마에게 파는 것이 제조소 유지비 수급의 정석입니다.</p>
                 </div>
             </div>
-
-            <div class="bg-white p-6 rounded-lg shadow-sm">
-                <h3 class="text-xl font-bold mb-4">효율적인 재료 수급 꿀팁 요약</h3>
-                <ul class="grid md:grid-cols-2 gap-4">
-                    <li class="bg-[#faf8f5] p-3 border-l-4 border-[#8c6b4a]"><strong>도주선 파밍:</strong> 헬름 퀘스트 중 '로그(Rogue)' 세력이나 밀수업자 배가 스폰되면 무조건 잡으세요. 은화 상자와 고급 재료를 줍니다.</li>
-                    <li class="bg-[#faf8f5] p-3 border-l-4 border-[#8c6b4a]"><strong>재료 추적 기능:</strong> 대장간/조선소에서 필요한 재료를 '추적' 등록하면 지도에 해당 재료를 드롭하는 무역로가 표시됩니다.</li>
-                    <li class="bg-[#faf8f5] p-3 border-l-4 border-[#8c6b4a]"><strong>협동 파밍:</strong> 월드 채팅이나 디스코드에서 엘리트 호위대 팟을 구하면 단시간에 엄청난 양의 특수 철/장치를 모을 수 있습니다.</li>
-                    <li class="bg-[#faf8f5] p-3 border-l-4 border-[#8c6b4a]"><strong>주간 상점 활용:</strong> 에이트의 조각으로 사는 암시장 재료는 '파밍으로 안 나오는 부족분'을 메꾸는 용도로만 쓰세요.</li>
-                </ul>
+            <div class="chart-container h-64">
+                <canvas id="ecoChart"></canvas>
             </div>
         </div>
 
-        <div id="strategy" class="content-section">
-            <h2 class="text-2xl font-bold mb-4 text-[#4a3b32]">💰 에이트의 조각 수급 및 투자 꿀팁</h2>
-            <p class="mb-6 text-lg">에이트의 조각(Pieces of Eight, Po8)은 최종 콘텐츠의 핵심 재화입니다. 한정된 자원을 어디에 먼저 투자해야 하는지 아는 것이 성장의 핵심입니다.</p>
-
-            <div class="grid md:grid-cols-2 gap-8 mb-8">
-                <div class="bg-white p-6 rounded-lg shadow-sm">
-                    <h3 class="text-xl font-bold mb-4">최우선 투자 순위 (헬름 제국)</h3>
-                    <div class="space-y-4">
-                        <div class="p-3 bg-green-50 rounded border border-green-200">
-                            <strong>1순위: 헬름 책상 업그레이드 (제국 관리)</strong><br>
-                            무기나 도면을 사기 전에 <span class="text-red-600 font-bold">무조건</span> 밀수업자 은신처의 책상에서 '제조소 효율 증가', '무역로 보너스 증가' 관련 특성을 먼저 업그레이드 하세요. 이 패시브가 에이트 생산량을 기하급수적으로 늘려줍니다.
-                        </div>
-                        <div class="p-3 bg-blue-50 rounded border border-blue-200">
-                            <strong>2순위: 붉은 섬(Red Isle) 집중 투자</strong><br>
-                            초반에 모든 맵을 확장하려 하지 마세요. 생 앙느 주변 '붉은 섬' 지역의 제조소 4~5개만 골라서 <strong>7레벨 이상으로 집중 업그레이드</strong> 하는 것이 훨씬 이득입니다. (7레벨부터 저장 용량이 대폭 증가하여 자주 수금할 필요가 없습니다.)
-                        </div>
-                        <div class="p-3 bg-purple-50 rounded border border-purple-200">
-                            <strong>3순위: 필수 무기/도면 구입</strong><br>
-                            에이트 생산이 안정화되면(하루에 수만 개씩 모일 때) 다르다넬스 건, 우로보로스 장갑, 코르벳 도면 등 종결급 아이템을 구입하세요.
-                        </div>
-                    </div>
+        <!-- BOARD: Community -->
+        <div id="board" class="content-section">
+            <h2 class="text-2xl font-bold mb-6 border-l-4 border-black pl-4">선원 게시판</h2>
+            <div class="mb-10 max-w-2xl">
+                <div class="flex gap-2 mb-2">
+                    <input type="text" id="p-name" placeholder="CAPTAIN NAME" class="border border-black p-2 text-xs w-1/3 focus:outline-none">
+                    <input type="text" id="p-content" placeholder="MESSAGE..." class="border border-black p-2 text-xs w-2/3 focus:outline-none">
                 </div>
-
-                <div class="bg-white p-6 rounded-lg shadow-sm flex flex-col justify-center">
-                    <h3 class="text-xl font-bold mb-4 text-center">제조소 레벨업의 복리 효과</h3>
-                    <div class="chart-container">
-                        <canvas id="po8Chart"></canvas>
-                    </div>
-                    <p class="text-xs text-center text-gray-500 mt-2">초기 에이트를 소모하여 레벨업을 한 유저가 결국 압도적인 수입을 얻습니다.</p>
-                </div>
+                <button onclick="postMsg()" class="w-full bg-black text-white text-xs py-3 font-bold hover:bg-gray-800 transition">POST TO ARCHIVE</button>
             </div>
-
-            <div class="bg-white p-6 rounded-lg shadow-sm border-t-4 border-[#8c6b4a]">
-                <h3 class="text-xl font-bold mb-4">💡 고인물 꿀팁 방출</h3>
-                <div class="grid md:grid-cols-2 gap-6">
-                    <div>
-                        <h4 class="font-bold text-[#8c6b4a] mb-2">▪️ 수금 자동화 (Fleet Assignment)</h4>
-                        <p class="text-sm text-gray-700">남는 배들을 제조소에 배치하여 자동 수금을 활성화하세요. 배의 레벨(티어)이 높을수록 배달 성공률과 들고 올 수 있는 에이트 양이 증가하므로, 창고에 노는 배들도 강화해 두는 것이 좋습니다.</p>
-                    </div>
-                    <div>
-                        <h4 class="font-bold text-[#8c6b4a] mb-2">▪️ 은화(Silver) 유지비 팁</h4>
-                        <p class="text-sm text-gray-700">제조소를 돌리려면 막대한 은화가 필요합니다. 럼주(Gold Skull Rum)나 아편(Black Lotus Opium)을 가공하여 일반 상인(스컬록/라마)에게 팔면 개당 250은화를 받습니다. 이것이 은화 복사의 핵심입니다.</p>
-                    </div>
-                    <div>
-                        <h4 class="font-bold text-[#8c6b4a] mb-2">▪️ 풍향과 항로</h4>
-                        <p class="text-sm text-gray-700">수동 수금을 할 때는 맵을 보고 맞바람(빨간 화살표)을 피하는 동선을 짜세요. 바크나 브리간틴의 경우 순풍일 때와 역풍일 때 파밍 속도가 2배 이상 차이납니다.</p>
-                    </div>
-                    <div>
-                        <h4 class="font-bold text-[#8c6b4a] mb-2">▪️ 무역로 보너스 링크</h4>
-                        <p class="text-sm text-gray-700">서로 선으로 연결된 두 제조소를 모두 점령하면 추가 생산 보너스가 발생합니다. 거점을 확장할 때는 항상 이 '링크'가 연결되도록 확장하세요.</p>
-                    </div>
-                </div>
+            <div id="msg-list" class="space-y-6">
+                <!-- Posts dynamic -->
             </div>
         </div>
 
     </main>
 
-    <footer class="bg-[#2d241e] text-[#ebdccb] text-center py-6 mt-8">
-        <p>© 2024 Skull and Bones Master Guide | 선장님의 순항을 기원합니다 🏴‍☠️</p>
+    <footer class="border-t border-gray-200 py-12 px-6 text-[10px] text-gray-400 text-center uppercase tracking-[0.2em]">
+        End of Archive / Secure Connection Verified
     </footer>
 
     <script>
-        // Tab Navigation Logic
-        function switchTab(tabId) {
-            // Remove active classes
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                btn.classList.remove('active', 'bg-[#8c6b4a]', 'text-white');
-                btn.classList.add('text-[#4a3b32]');
-            });
-            document.querySelectorAll('.content-section').forEach(sec => sec.classList.remove('active'));
-
-            // Add active class to clicked
-            const activeBtn = document.querySelector(`button[onclick="switchTab('${tabId}')"]`);
-            activeBtn.classList.add('active', 'bg-[#8c6b4a]', 'text-white');
-            activeBtn.classList.remove('text-[#4a3b32]');
-            
-            document.getElementById(tabId).classList.add('active');
+        function switchTab(id) {
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(id).classList.add('active');
+            if(id === 'fleet') renderFleet();
+            if(id === 'economy') renderEco();
         }
 
-        // Initialize Charts when the window loads
-        window.onload = function() {
-            // Chart 1: Ship Meta Radar Chart
-            const ctxRadar = document.getElementById('shipRadarChart').getContext('2d');
-            new Chart(ctxRadar, {
+        function renderFleet() {
+            const ctx = document.getElementById('shipChart').getContext('2d');
+            if(window.ch1) window.ch1.destroy();
+            window.ch1 = new Chart(ctx, {
                 type: 'radar',
                 data: {
-                    labels: ['화력 (Firepower)', '장갑/생존 (Hull)', '속도 (Speed)', '유틸리티/힐 (Utility)', '화물/수금 (Cargo)'],
-                    datasets: [
-                        {
-                            label: '바크 (Barque)',
-                            data: [60, 80, 75, 100, 70],
-                            backgroundColor: 'rgba(74, 191, 153, 0.2)',
-                            borderColor: 'rgba(74, 191, 153, 1)',
-                            pointBackgroundColor: 'rgba(74, 191, 153, 1)',
-                        },
-                        {
-                            label: '코르벳 (Corvette)',
-                            data: [95, 60, 90, 40, 60],
-                            backgroundColor: 'rgba(219, 84, 97, 0.2)',
-                            borderColor: 'rgba(219, 84, 97, 1)',
-                            pointBackgroundColor: 'rgba(219, 84, 97, 1)',
-                        },
-                        {
-                            label: '스노우 (Snow)',
-                            data: [70, 100, 50, 60, 90],
-                            backgroundColor: 'rgba(89, 110, 150, 0.2)',
-                            borderColor: 'rgba(89, 110, 150, 1)',
-                            pointBackgroundColor: 'rgba(89, 110, 150, 1)',
-                        }
-                    ]
+                    labels: ['화력', '생존', '속도', '힐링', '적재'],
+                    datasets: [{
+                        label: 'Barque (13T)',
+                        data: [65, 85, 70, 100, 75],
+                        borderColor: '#000',
+                        backgroundColor: 'rgba(0,0,0,0.05)',
+                        borderWidth: 2
+                    }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        r: {
-                            angleLines: { color: 'rgba(0, 0, 0, 0.1)' },
-                            grid: { color: 'rgba(0, 0, 0, 0.1)' },
-                            pointLabels: { font: { size: 12, family: 'Pretendard' } },
-                            ticks: { display: false, min: 0, max: 100 }
-                        }
-                    },
-                    plugins: {
-                        legend: { position: 'bottom', labels: { font: { family: 'Pretendard' } } },
-                        tooltip: {
-                            callbacks: {
-                                title: function(context) {
-                                    let title = context[0].label || '';
-                                    if(title.length > 16) return title.substring(0, 16) + '...';
-                                    return title;
-                                }
-                            }
-                        }
-                    }
-                }
+                options: { maintainAspectRatio: false, scales: { r: { ticks: { display: false } } } }
             });
+        }
 
-            // Chart 2: Po8 Investment Return Chart
-            const ctxBar = document.getElementById('po8Chart').getContext('2d');
-            new Chart(ctxBar, {
+        function renderEco() {
+            const ctx = document.getElementById('ecoChart').getContext('2d');
+            if(window.ch2) window.ch2.destroy();
+            window.ch2 = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: ['1주차', '2주차', '3주차', '4주차', '5주차'],
-                    datasets: [
-                        {
-                            label: '제조소 재투자 유저',
-                            data: [1000, 3000, 15000, 50000, 150000],
-                            borderColor: '#8c6b4a',
-                            backgroundColor: 'rgba(140, 107, 74, 0.2)',
-                            borderWidth: 3,
-                            fill: true,
-                            tension: 0.4
-                        },
-                        {
-                            label: '초반 아이템 구매 유저 (저축)',
-                            data: [1000, 2000, 3500, 5500, 8000],
-                            borderColor: '#a3a3a3',
-                            borderWidth: 2,
-                            borderDash: [5, 5],
-                            fill: false,
-                            tension: 0.4
-                        }
-                    ]
+                    labels: ['W1', 'W2', 'W3', 'W4'],
+                    datasets: [{
+                        label: 'Po8 Accumulation',
+                        data: [5000, 25000, 120000, 450000],
+                        borderColor: '#000',
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.3
+                    }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: 'rgba(0, 0, 0, 0.05)' },
-                            ticks: { font: { family: 'Pretendard' } }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: { font: { family: 'Pretendard' } }
-                        }
-                    },
-                    plugins: {
-                        legend: { position: 'bottom', labels: { font: { family: 'Pretendard' } } },
-                        tooltip: { mode: 'index', intersect: false }
-                    }
-                }
+                options: { maintainAspectRatio: false }
             });
-        };
+        }
+
+        async function postMsg() {
+            const author = document.getElementById('p-name').value || "ANON";
+            const content = document.getElementById('p-content').value;
+            if(!content) return;
+            const { db, appId, firebaseUtils, auth } = window;
+            if(!auth.currentUser) return;
+            await firebaseUtils.addDoc(firebaseUtils.collection(db, 'artifacts', appId, 'public', 'data', 'posts'), {
+                author, content, createdAt: firebaseUtils.serverTimestamp()
+            });
+            document.getElementById('p-content').value = "";
+        }
+
+        function loadPosts() {
+            const { db, appId, firebaseUtils } = window;
+            const q = firebaseUtils.collection(db, 'artifacts', appId, 'public', 'data', 'posts');
+            firebaseUtils.onSnapshot(q, (snap) => {
+                const list = document.getElementById('msg-list');
+                list.innerHTML = "";
+                const posts = [];
+                snap.forEach(d => posts.push(d.data()));
+                posts.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                posts.forEach(p => {
+                    const d = document.createElement('div');
+                    d.className = "border-b border-gray-100 pb-4";
+                    d.innerHTML = `<div class="text-[10px] font-bold mb-1">[${p.author}]</div><div class="text-sm">${p.content}</div>`;
+                    list.appendChild(d);
+                });
+            });
+        }
+
+        window.onload = () => { renderFleet(); renderEco(); };
     </script>
 </body>
 </html>
