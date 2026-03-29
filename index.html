@@ -6,259 +6,281 @@
     <title>S&B Master Archive</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Firebase SDK 로드 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = JSON.parse(__firebase_config);
+        // --- 선장님의 스크린샷에서 확인된 실제 설정값 적용 ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAFwAW39PfZ5K73zKNImq1wOQw4oXj0pbo",
+            authDomain: "jp08041.firebaseapp.com",
+            projectId: "jp08041",
+            storageBucket: "jp08041.firebasestorage.app",
+            messagingSenderId: "870601458638",
+            appId: "1:870601458638:web:ae02e24a77b4840bb3219f",
+            measurementId: "G-EQVTGYKZ2V"
+        };
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'sb-master-archive';
+        const appId = "didactic-parakeet"; // 저장소 식별자
 
+        // 전역 변수로 할당하여 어디서든 접근 가능하게 설정
         window.db = db;
         window.auth = auth;
         window.appId = appId;
-        window.firebaseUtils = { collection, addDoc, onSnapshot, query, serverTimestamp, doc, updateDoc, deleteDoc };
+        window.firebaseUtils = { collection, addDoc, onSnapshot, query, serverTimestamp };
 
+        // 1. 인증 먼저 수행 (RULE 3 준수)
         const initAuth = async () => {
             try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (e) { console.error(e); }
+                await signInAnonymously(auth);
+                console.log("데이터베이스 연결 성공!");
+            } catch (e) {
+                console.error("연결 에러:", e);
+                const list = document.getElementById('post-list');
+                if(list) list.innerHTML = `<p class="text-red-500 text-xs p-10 text-center uppercase font-black">Database Connection Error<br>${e.message}</p>`;
+            }
         };
         initAuth();
 
-        onAuthStateChanged(auth, (user) => { if (user) loadPosts(); });
+        // 2. 인증 상태 변화 감지 후 데이터 로드
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('status-light').classList.replace('bg-gray-500', 'bg-green-500');
+                loadPosts();
+            }
+        });
     </script>
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-        body { font-family: 'Pretendard', sans-serif; background-color: #ffffff; color: #000000; }
-        .nav-link { position: relative; transition: all 0.3s; }
-        .nav-link.active::after { content: ''; position: absolute; bottom: -2px; left: 0; width: 100%; height: 2px; background: #000; }
+        body { font-family: 'Pretendard', sans-serif; background-color: #ffffff; color: #000000; overflow-x: hidden; }
+        .nav-link { position: relative; transition: all 0.3s; opacity: 0.4; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; }
+        .nav-link.active { opacity: 1; }
+        .nav-link.active::after { content: ''; position: absolute; bottom: -4px; left: 0; width: 100%; height: 2px; background: #000; }
         .content-section { display: none; }
         .content-section.active { display: block; animation: slideUp 0.4s ease-out; }
         @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .chart-container { position: relative; width: 100%; height: 300px; max-width: 500px; margin: auto; }
-        .glass-card { border: 1px solid #e5e7eb; transition: transform 0.2s; }
-        .glass-card:hover { transform: translateY(-2px); border-color: #000; }
+        .data-card { border: 1px solid #eeeeee; padding: 1.5rem; transition: all 0.3s; }
+        .data-card:hover { border-color: #000; background-color: #fafafa; }
+        .chart-container { position: relative; width: 100%; height: 280px; max-width: 500px; margin: auto; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #000; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="selection:bg-black selection:text-white">
 
-    <!-- Chosen Palette: Black & White Minimalist -->
-    <!-- Application Structure Plan: Tabbed interface for deep-dive information. Clean grid-based layout for materials and farming tips. Integrated Firestore-backed board. -->
-    <!-- Visualization & Content Choices: Radar chart for ship comparison, line chart for Po8 meta. Plain text lists for high readability. No SVG/Mermaid. -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
-
-    <header class="border-b border-black py-10 px-6">
+    <header class="border-b border-black py-12 px-6">
         <div class="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-end">
             <div>
-                <h1 class="text-4xl font-black tracking-tighter mb-2">SKULL AND BONES<br>MASTER ARCHIVE</h1>
-                <p class="text-gray-500 uppercase tracking-widest text-xs font-bold">Season 03 / World Tier 02 Updated</p>
+                <div class="text-[10px] font-black mb-2 tracking-[0.3em] uppercase opacity-40">Private Tactical Data</div>
+                <h1 class="text-5xl font-black tracking-tighter leading-none mb-4">S&B MASTER<br>ARCHIVE</h1>
             </div>
-            <div id="auth-tag" class="text-[10px] border border-black px-2 py-1 mt-4 md:mt-0 opacity-50">STATION: CONNECTED</div>
+            <div class="text-right">
+                <div id="status-light" class="inline-block w-2 h-2 bg-gray-500 rounded-full mr-2"></div>
+                <span class="text-[10px] font-bold tracking-widest uppercase opacity-50">Database Active</span>
+            </div>
         </div>
     </header>
 
-    <nav class="sticky top-0 bg-white z-50 border-b border-gray-200">
-        <div class="max-w-5xl mx-auto flex gap-8 px-6 py-4 overflow-x-auto">
-            <button onclick="switchTab('home')" class="nav-link active font-bold text-sm uppercase">Archive</button>
-            <button onclick="switchTab('fleet')" class="nav-link font-bold text-sm uppercase">Fleet & Meta</button>
-            <button onclick="switchTab('economy')" class="nav-link font-bold text-sm uppercase">Economy</button>
-            <button onclick="switchTab('board')" class="nav-link font-bold text-sm uppercase">Community</button>
+    <nav class="sticky top-0 bg-white/80 backdrop-blur-md z-50 border-b border-gray-100">
+        <div class="max-w-5xl mx-auto flex gap-10 px-6 py-5 overflow-x-auto no-scrollbar">
+            <button onclick="switchTab('archive')" class="nav-link active">Archive</button>
+            <button onclick="switchTab('ships')" class="nav-link">Fleet Meta</button>
+            <button onclick="switchTab('comm')" class="nav-link">Community</button>
         </div>
     </nav>
 
-    <main class="max-w-5xl mx-auto p-6 min-h-[60vh]">
+    <main class="max-w-5xl mx-auto p-6 min-h-[70vh]">
 
-        <!-- HOME: Archive Overview -->
-        <div id="home" class="content-section active">
-            <section class="grid md:grid-cols-2 gap-12 mb-16">
-                <div>
-                    <h2 class="text-2xl font-bold mb-6 border-l-4 border-black pl-4">시즌 초기화 가이드</h2>
-                    <div class="space-y-6 text-sm leading-relaxed">
-                        <div>
-                            <h3 class="font-bold underline mb-2">무엇이 사라지는가? (Reset)</h3>
-                            <p class="text-gray-600">제조소 지배권, 제조소 레벨, 헬름 제국 업그레이드 수치가 초기화됩니다. 에이트의 조각(Po8)은 30만 개를 초과하는 분량은 삭제됩니다.</p>
+        <!-- ARCHIVE Section -->
+        <div id="archive" class="content-section active">
+            <div class="grid md:grid-cols-2 gap-16 mb-20">
+                <div class="space-y-10">
+                    <h2 class="text-xl font-black border-b-2 border-black pb-2 inline-block">시즌 초기화 프로토콜</h2>
+                    <div class="space-y-6">
+                        <div class="data-card">
+                            <h3 class="font-black mb-1 uppercase text-[10px] text-red-600">Resets (초기화)</h3>
+                            <p class="font-bold text-sm">제조소 지배권 및 레벨 1로 초기화</p>
+                            <p class="text-gray-400 text-xs mt-1 leading-relaxed">에이트의 조각(Po8)은 30만 개까지만 보존되니 반드시 그 전에 아이템으로 교환하십시오.</p>
                         </div>
-                        <div>
-                            <h3 class="font-bold underline mb-2">무엇이 남는가? (Kept)</h3>
-                            <p class="text-gray-600">함선, 장비, 가구, 은화, 창고 자원, 모든 해금된 청사진은 그대로 유지됩니다. 함선의 강화 단계도 유지됩니다.</p>
+                        <div class="data-card">
+                            <h3 class="font-black mb-1 uppercase text-[10px] text-green-600">Kept (유지)</h3>
+                            <p class="font-bold text-sm">함선, 무기, 은화, 재료, 모든 도면 유지</p>
+                            <p class="text-gray-400 text-xs mt-1 leading-relaxed">이미 완료한 함선 강화 단계는 다음 시즌으로 그대로 계승됩니다.</p>
                         </div>
                     </div>
                 </div>
-                <div class="bg-gray-50 p-8 border border-gray-200">
-                    <h3 class="font-bold mb-4 uppercase text-xs tracking-widest">Season Tip</h3>
-                    <p class="text-sm">시즌 종료 직전에는 에이트의 조각을 아끼지 말고 **'은화 상자'**나 **'고급 강화 재료'**로 모두 변환하여 다음 시즌을 준비하는 것이 최선입니다.</p>
+                <div class="bg-black text-white p-10 flex flex-col justify-center">
+                    <h3 class="text-[10px] font-bold tracking-[0.3em] mb-4 opacity-50 uppercase underline">Captain's Log</h3>
+                    <p class="text-xl font-black leading-tight italic">"시즌 종료 전, 남은 에이트의 조각을 '은화 상자'나 '고급 강화 재료'로 모두 변환하여 창고에 쌓아두는 것이 최고의 전략입니다."</p>
                 </div>
-            </section>
+            </div>
         </div>
 
-        <!-- FLEET: Ships & Materials -->
-        <div id="fleet" class="content-section">
-            <div class="grid md:grid-cols-2 gap-12 mb-12">
+        <!-- SHIPS Section -->
+        <div id="ships" class="content-section">
+            <div class="grid md:grid-cols-2 gap-16">
                 <div>
-                    <h2 class="text-2xl font-bold mb-6 border-l-4 border-black pl-4">13티어 바크(Barque) 분석</h2>
-                    <p class="text-sm mb-4">"13티어 바크로 월드 티어 2 파밍이 가능한가요?"</p>
-                    <div class="p-4 bg-black text-white text-sm mb-6">
-                        <strong>YES.</strong> 현재 바크는 솔로 파밍에서 대체 불가능한 1티어입니다. 패시브 힐 덕분에 소모품 없이 무한 파밍이 가능합니다.
+                    <h2 class="text-xl font-black mb-8 border-b-2 border-black pb-2 inline-block">전투함 운용 데이터</h2>
+                    <div class="mb-8 p-6 border border-black bg-gray-50">
+                        <h3 class="font-black text-lg mb-2 italic">Barque 13T</h3>
+                        <p class="text-xs text-gray-500 font-medium leading-relaxed">월드 티어 2 솔로 파밍의 지배자. 선체 복구 패시브 덕분에 수리 키트 없이도 에이트 수금이 가능합니다. 자마자마 세팅을 강력 추천합니다.</p>
                     </div>
                     <div class="chart-container">
-                        <canvas id="shipChart"></canvas>
+                        <canvas id="radarChart"></canvas>
                     </div>
                 </div>
-                <div>
-                    <h2 class="text-2xl font-bold mb-6 border-l-4 border-black pl-4">코르벳 건조 & 심철 파밍</h2>
-                    <div class="space-y-4 text-sm">
-                        <div class="glass-card p-4">
-                            <h4 class="font-bold mb-2">코르벳 필요 재료</h4>
-                            <ul class="text-gray-600 list-disc list-inside">
-                                <li>정밀 시추 날 (Precision Drilling Bit)</li>
-                                <li>범고래의 장치 (Orca's Mechanism)</li>
-                                <li>심철 (Heart of Ice) - 보스 드롭</li>
-                                <li>로즈우드 & 순철 주괴</li>
-                            </ul>
+                <div class="space-y-10">
+                    <h2 class="text-xl font-black mb-8 border-b-2 border-black pb-2 inline-block">자원 수급 및 코르벳</h2>
+                    <div class="space-y-4">
+                        <div class="data-card">
+                            <h4 class="font-black text-[11px] mb-2 uppercase tracking-widest text-blue-600">코르벳 필요 자원</h4>
+                            <p class="text-xs text-gray-500 leading-6 font-bold">정밀 시추 날 / 범고래 장치 / 심철(Heart of Ice) / 로즈우드 널빤지 / 순철 주괴</p>
                         </div>
-                        <div class="glass-card p-4">
-                            <h4 class="font-bold mb-2">심철(희귀재료) 수급 팁</h4>
-                            <p class="text-gray-600">주간 상점만 기다리지 마세요. **'엘리트 호위대(Convoy)'** 습격과 **'고레벨 전초기지 약탈'**이 훨씬 빠릅니다. 망원경으로 화물을 미리 스캔해 심철이 있는지 확인하고 공격하세요.</p>
+                        <div class="data-card">
+                            <h4 class="font-black text-[11px] mb-2 uppercase tracking-widest text-orange-600">심철 파밍 전략</h4>
+                            <p class="text-xs text-gray-500 leading-6">암시장 주간 상점은 한계가 있습니다. 13레벨 이상 전초기지 약탈 보상이나 필드의 엘리트 호위대(Convoy)를 직접 사냥하는 것이 가장 빠릅니다.</p>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- ECONOMY: Po8 & Strategy -->
-        <div id="economy" class="content-section">
-            <h2 class="text-2xl font-bold mb-8 border-l-4 border-black pl-4">에이트의 조각 수급 전략</h2>
-            <div class="grid md:grid-cols-3 gap-6 mb-12">
-                <div class="border p-6">
-                    <span class="text-4xl font-black">01</span>
-                    <h3 class="font-bold mt-2">헬름 책상 우선</h3>
-                    <p class="text-xs text-gray-500 mt-2">무기보다 '제국 관리' 업그레이드가 먼저입니다. 생산 효율이 수십 배 차이납니다.</p>
+        <!-- COMMUNITY Section -->
+        <div id="comm" class="content-section">
+            <h2 class="text-xl font-black mb-8 border-b-2 border-black pb-2 inline-block">선원 게시판</h2>
+            <div class="bg-gray-50 p-6 mb-10 border border-black">
+                <div class="flex flex-col md:flex-row gap-2 mb-2">
+                    <input type="text" id="p-name" placeholder="CAPTAIN NAME" class="p-3 text-xs font-black border border-gray-200 focus:border-black outline-none bg-white w-full md:w-1/4 uppercase tracking-tighter">
+                    <input type="text" id="p-msg" placeholder="SHARE YOUR TACTICS..." class="p-3 text-xs font-black border border-gray-200 focus:border-black outline-none bg-white w-full md:w-3/4">
                 </div>
-                <div class="border p-6 bg-black text-white">
-                    <span class="text-4xl font-black">02</span>
-                    <h3 class="font-bold mt-2">7레벨 제조소</h3>
-                    <p class="text-xs text-gray-300 mt-2">붉은 섬의 주요 거점을 7레벨까지 찍으세요. 수금 주기가 길어져 게임이 편해집니다.</p>
-                </div>
-                <div class="border p-6">
-                    <span class="text-4xl font-black">03</span>
-                    <h3 class="font-bold mt-2">은화 복사</h3>
-                    <p class="text-xs text-gray-500 mt-2">골드 럼주/아편을 만들어 스컬록/라마에게 파는 것이 제조소 유지비 수급의 정석입니다.</p>
-                </div>
+                <button onclick="sendMsg()" class="w-full bg-black text-white py-4 text-[10px] font-black tracking-[0.3em] hover:bg-gray-800 transition">PUBLISH TO ARCHIVE</button>
             </div>
-            <div class="chart-container h-64">
-                <canvas id="ecoChart"></canvas>
-            </div>
-        </div>
-
-        <!-- BOARD: Community -->
-        <div id="board" class="content-section">
-            <h2 class="text-2xl font-bold mb-6 border-l-4 border-black pl-4">선원 게시판</h2>
-            <div class="mb-10 max-w-2xl">
-                <div class="flex gap-2 mb-2">
-                    <input type="text" id="p-name" placeholder="CAPTAIN NAME" class="border border-black p-2 text-xs w-1/3 focus:outline-none">
-                    <input type="text" id="p-content" placeholder="MESSAGE..." class="border border-black p-2 text-xs w-2/3 focus:outline-none">
-                </div>
-                <button onclick="postMsg()" class="w-full bg-black text-white text-xs py-3 font-bold hover:bg-gray-800 transition">POST TO ARCHIVE</button>
-            </div>
-            <div id="msg-list" class="space-y-6">
-                <!-- Posts dynamic -->
+            <div id="post-list" class="space-y-3">
+                <p class="text-center text-[10px] text-gray-300 py-20 tracking-widest animate-pulse">CONNECTING TO FIREBASE SERVER...</p>
             </div>
         </div>
 
     </main>
 
-    <footer class="border-t border-gray-200 py-12 px-6 text-[10px] text-gray-400 text-center uppercase tracking-[0.2em]">
-        End of Archive / Secure Connection Verified
+    <footer class="mt-20 py-12 px-6 border-t border-gray-100 flex justify-between items-center text-[9px] text-gray-300 font-bold uppercase tracking-[0.3em]">
+        <div>Archive ID: 08041-JP</div>
+        <div>Verified Connection: Secure</div>
     </footer>
 
     <script>
+        // 탭 전환 로직
         function switchTab(id) {
             document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
             document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
-            event.target.classList.add('active');
+            const activeBtn = Array.from(document.querySelectorAll('.nav-link')).find(btn => btn.getAttribute('onclick').includes(id));
+            if(activeBtn) activeBtn.classList.add('active');
             document.getElementById(id).classList.add('active');
-            if(id === 'fleet') renderFleet();
-            if(id === 'economy') renderEco();
+            if(id === 'ships') initRadar();
         }
 
-        function renderFleet() {
-            const ctx = document.getElementById('shipChart').getContext('2d');
-            if(window.ch1) window.ch1.destroy();
-            window.ch1 = new Chart(ctx, {
+        // 레이더 차트 (함선 스펙)
+        function initRadar() {
+            const canvas = document.getElementById('radarChart');
+            if(!canvas) return;
+            const ctx = canvas.getContext('2d');
+            if(window.rChart) window.rChart.destroy();
+            window.rChart = new Chart(ctx, {
                 type: 'radar',
                 data: {
-                    labels: ['화력', '생존', '속도', '힐링', '적재'],
+                    labels: ['화력', '생존', '속도', '복구', '적재'],
                     datasets: [{
-                        label: 'Barque (13T)',
                         data: [65, 85, 70, 100, 75],
                         borderColor: '#000',
-                        backgroundColor: 'rgba(0,0,0,0.05)',
-                        borderWidth: 2
+                        backgroundColor: 'rgba(0,0,0,0.02)',
+                        borderWidth: 1,
+                        pointRadius: 2
                     }]
                 },
-                options: { maintainAspectRatio: false, scales: { r: { ticks: { display: false } } } }
+                options: { 
+                    maintainAspectRatio: false, 
+                    scales: { 
+                        r: { 
+                            ticks: { display: false }, 
+                            grid: { color: '#f5f5f5' },
+                            pointLabels: { font: { weight: '800', size: 10 } }
+                        } 
+                    }, 
+                    plugins: { legend: { display: false } } 
+                }
             });
         }
 
-        function renderEco() {
-            const ctx = document.getElementById('ecoChart').getContext('2d');
-            if(window.ch2) window.ch2.destroy();
-            window.ch2 = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: ['W1', 'W2', 'W3', 'W4'],
-                    datasets: [{
-                        label: 'Po8 Accumulation',
-                        data: [5000, 25000, 120000, 450000],
-                        borderColor: '#000',
-                        borderWidth: 2,
-                        fill: false,
-                        tension: 0.3
-                    }]
-                },
-                options: { maintainAspectRatio: false }
-            });
-        }
-
-        async function postMsg() {
-            const author = document.getElementById('p-name').value || "ANON";
-            const content = document.getElementById('p-content').value;
+        // 메시지 전송 로직
+        async function sendMsg() {
+            const author = document.getElementById('p-name').value || "ANON CAPTAIN";
+            const content = document.getElementById('p-msg').value;
             if(!content) return;
+
             const { db, appId, firebaseUtils, auth } = window;
-            if(!auth.currentUser) return;
-            await firebaseUtils.addDoc(firebaseUtils.collection(db, 'artifacts', appId, 'public', 'data', 'posts'), {
-                author, content, createdAt: firebaseUtils.serverTimestamp()
-            });
-            document.getElementById('p-content').value = "";
+            if(!auth.currentUser) {
+                alert("아직 서버에 연결되지 않았습니다. 잠시만 기다려주세요.");
+                return;
+            }
+
+            try {
+                // RULE 1: 정해진 경로에 저장
+                await firebaseUtils.addDoc(firebaseUtils.collection(db, 'artifacts', appId, 'public', 'data', 'posts'), {
+                    author,
+                    content,
+                    createdAt: firebaseUtils.serverTimestamp()
+                });
+                document.getElementById('p-msg').value = "";
+            } catch(e) {
+                console.error("전송 실패:", e);
+                alert("전송에 실패했습니다. 파이어베이스 보안 규칙을 확인하세요.");
+            }
         }
 
+        // 메시지 불러오기 로직 (실시간)
         function loadPosts() {
             const { db, appId, firebaseUtils } = window;
+            // RULE 1: 정해진 경로에서 불러오기
             const q = firebaseUtils.collection(db, 'artifacts', appId, 'public', 'data', 'posts');
+            
             firebaseUtils.onSnapshot(q, (snap) => {
-                const list = document.getElementById('msg-list');
+                const list = document.getElementById('post-list');
+                if(!list) return;
                 list.innerHTML = "";
+                
                 const posts = [];
                 snap.forEach(d => posts.push(d.data()));
+                
+                // RULE 2: 클라이언트 사이드 정렬
                 posts.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+                
+                if(posts.length === 0) {
+                    list.innerHTML = "<p class='text-center text-[10px] text-gray-300 py-10 uppercase tracking-widest'>Archive is empty.</p>";
+                    return;
+                }
+
                 posts.forEach(p => {
-                    const d = document.createElement('div');
-                    d.className = "border-b border-gray-100 pb-4";
-                    d.innerHTML = `<div class="text-[10px] font-bold mb-1">[${p.author}]</div><div class="text-sm">${p.content}</div>`;
-                    list.appendChild(d);
+                    const row = document.createElement('div');
+                    row.className = "flex gap-6 border-b border-gray-50 pb-3 items-start hover:bg-gray-50 transition p-2";
+                    row.innerHTML = `
+                        <div class="text-[9px] font-black min-w-[80px] uppercase truncate opacity-40">${p.author}</div>
+                        <div class="text-xs text-gray-500 font-medium flex-grow">${p.content}</div>
+                    `;
+                    list.appendChild(row);
                 });
+            }, (err) => {
+                console.error("데이터 로드 실패:", err);
+                const list = document.getElementById('post-list');
+                if(list) list.innerHTML = `<p class="text-red-500 text-[10px] font-bold py-10 uppercase text-center">Security Rule Error: Check Firebase Rules Tab</p>`;
             });
         }
 
-        window.onload = () => { renderFleet(); renderEco(); };
+        window.onload = () => { initRadar(); };
     </script>
 </body>
 </html>
