@@ -59,3 +59,98 @@ body {
 }
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* 드롭다운(Select) 메뉴 커스텀 */
+#ship-selector {
+    appearance: none; /* 기본 화살표 숨기기 */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 1em;
+    padding-right: 2rem;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+#ship-selector:hover {
+    border-color: #000;
+}
+
+/* 데이터 테이블 스타일 (보고서 내용 가독성 향상) */
+table { 
+    width: 100%;
+    border-collapse: separate; 
+    border-spacing: 0; 
+}
+
+th { 
+    border-bottom: 2px solid #000; 
+    padding: 12px 8px;
+    letter-spacing: 0.05em;
+}
+
+td { 
+    border-bottom: 1px solid #f0f0f0; 
+    padding: 12px 8px;
+    vertical-align: middle;
+}
+
+tr:last-child td { 
+    border-bottom: none; 
+}
+
+/* 게시판(Community) 리스트 애니메이션 */
+#post-list > div {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateX(-5px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* 입력 필드 포커스 스타일 */
+input:focus {
+    background-color: #fff !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+/* 반응형 모바일 최적화 */
+@media (max-width: 768px) {
+    .chart-container {
+        height: 220px; /* 모바일에서는 차트 높이를 약간 줄임 */
+    }
+    
+    h1 {
+        font-size: 2.5rem !important; /* 모바일 제목 크기 조절 */
+    }
+}
+
+.truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+button, select {
+    cursor: pointer;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+}
+
+tbody tr:hover {
+    background-color: #fafafa;
+    transition: background 0.2s;
+}
+
+.research-highlight {
+    background: linear-gradient(120deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0) 100%);
+    border-left: 2px solid #000;
+    padding-left: 1rem;
+}
